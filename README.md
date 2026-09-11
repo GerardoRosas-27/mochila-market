@@ -46,25 +46,6 @@ Configura **Cuenta → URL pública (Railway)**.
 - **IA externa pluggable** (quitar fondo, inbox)
 - **Arquitectura:** Riverpod + go_router + repositorios (SQLite móvil/desktop; SharedPreferences en web)
 
-## Despliegue en Railway (Flutter web)
-
-1. Conecta el repo en Railway (o `railway up` con este `Dockerfile`).
-2. Railway construye la imagen multi-stage (Flutter → nginx).
-3. El contenedor sirve `build/web` con **SPA fallback** (`nginx.conf` → `try_files … /index.html`) para deep links.
-4. Anota la URL pública (ej. `https://mochila-market-production.up.railway.app`).
-5. En la app (Cuenta), pega esa URL en **publicBaseUrl** (sin barra final).
-6. Comparte enlaces `/tienda`, `/producto/:id` y `/p/:slug`.
-
-Variables opcionales: ninguna obligatoria; la URL se guarda en el cliente (`SharedPreferences`).
-
-```bash
-# Build local equivalente al Dockerfile
-export PATH="/workspace/flutter-sdk/bin:$PATH"
-flutter pub get
-flutter build web --release
-# Sirve build/web con cualquier static server que haga fallback a index.html
-```
-
 ## Cómo ejecutar
 
 ```bash
@@ -74,22 +55,59 @@ cd mochila-market
 flutter pub get
 flutter run                 # móvil / desktop
 flutter run -d chrome       # web (path URLs: /tienda, /p/…)
+flutter build web --release --base-href /
 ```
 
-## APK
+## Descargas móviles (Android / iOS)
+
+En Railway, Express sirve:
+
+- `/downloads/mochila-market.apk`
+- `/downloads/mochila-market-android.zip`
+- `/downloads/mochila-market-ios.zip`
+
+con `Content-Disposition: attachment`. El APK/ZIP se obtienen en el **Docker build** desde GitHub Releases (no se committean binarios grandes).
+
+### Android APK
+
+- Build local: `flutter build apk --release` (Android SDK + JDK).
+- Release asset: tag `v1.2.0-mobile`, `MochilaMarket.apk` (también `MochilaMarket-android.zip`).
+- Mirror Railway: `server/fetch_apk.sh` hace curl en la imagen Docker → `/downloads/mochila-market.apk` (+ ZIP con notas de instalación).
+
+Fallbacks de fetch: `latest` → `v1.1.0-mobile` → `v1.0.0-mobile`.
+
+### iOS (limitaciones)
+
+Sin Mac/firma Apple **no** hay IPA instalable. El ZIP iOS es solo texto de instrucciones.
+
+## Desplegar en Railway (web)
+
+Despliegue **solo web** con Docker. Las carpetas `android/`, `ios/` y escritorio se mantienen en el repo; no se usan en el build de Railway (ver `.dockerignore`).
+
+1. Entra a [Railway](https://railway.app) → **New Project** → **Deploy from GitHub repo**.
+2. Autoriza GitHub si hace falta y selecciona **`GerardoRosas-27/mochila-market`**.
+3. Railway detecta el `Dockerfile` (o `railway.toml` con builder `DOCKERFILE`), construye Flutter web y sirve con Express (estáticos + APK/ZIP en `/downloads/`).
+4. Cuando termine el deploy, abre la URL pública del servicio (dominio `*.up.railway.app` o el que configures).
+5. En la app (Cuenta), pega esa URL en **publicBaseUrl** (sin barra final).
+6. Comparte enlaces `/tienda`, `/producto/:id` y `/p/:slug`.
+
+**Base href:** en Railway se usa `--base-href /` (raíz del dominio).
+
+Variables: Railway inyecta `PORT`; el contenedor ya escucha en `$PORT`. No hace falta configurar puerto a mano. Healthcheck: `/` (`railway.toml`).
 
 ```bash
-flutter build apk --release
-# build/app/outputs/flutter-apk/app-release.apk
+# Build local equivalente al Dockerfile (web)
+export PATH="/workspace/flutter-sdk/bin:$PATH"
+flutter pub get
+flutter build web --release --base-href /
+# Runtime: node server/server.js con public/ = build/web y downloads/ vía fetch_apk.sh
 ```
-
-Artefactos: `dist/MochilaMarket.apk` y `dist/MochilaMarket-android.zip`.
 
 ## Análisis
 
 ```bash
 flutter analyze
-flutter build web --release
+flutter build web --release --base-href /
 ```
 
 ## Estructura
@@ -102,8 +120,12 @@ lib/
     marketplace/ # admin Publicaciones (grupos de ofertas)
     inventory/   # CRUD
     auth/ camera/ inbox/ template/ company/ …
-Dockerfile       # flutter build web → nginx SPA
-nginx.conf       # deep-link fallback
+Dockerfile       # flutter web → Express (public/ + /downloads/)
+railway.toml     # DOCKERFILE builder, healthcheck /
+server/
+  server.js      # Express static + SPA fallback + APK/ZIP
+  fetch_apk.sh   # curl APK desde GitHub Releases
+  install_notes/ # INSTALL_ANDROID.txt / INSTALL_IOS.txt
 ```
 
 ## Almacenamiento
