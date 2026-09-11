@@ -2,19 +2,48 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/settings/public_base_url.dart';
 import '../../auth/presentation/auth_provider.dart';
 
-class AccountScreen extends ConsumerWidget {
+class AccountScreen extends ConsumerStatefulWidget {
   const AccountScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AccountScreen> createState() => _AccountScreenState();
+}
+
+class _AccountScreenState extends ConsumerState<AccountScreen> {
+  late final TextEditingController _urlCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _urlCtrl = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _urlCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final auth = ref.watch(authProvider);
+    final baseUrl = ref.watch(publicBaseUrlProvider);
+    if (_urlCtrl.text.isEmpty && baseUrl.isNotEmpty) {
+      _urlCtrl.text = baseUrl;
+    }
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Cuenta'),
         actions: [
+          IconButton(
+            tooltip: 'Tienda pública',
+            icon: const Icon(Icons.storefront),
+            onPressed: () => context.push('/tienda'),
+          ),
           IconButton(
             tooltip: 'Ajustes IA',
             icon: const Icon(Icons.settings_suggest),
@@ -68,6 +97,50 @@ class AccountScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 12),
           Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    'URL pública (Railway)',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Base para enlaces /p/:slug y /producto/:id que compartes '
+                    'en respuestas de Marketplace.',
+                    style: TextStyle(fontSize: 13),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _urlCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'publicBaseUrl',
+                      hintText: 'https://tu-app.up.railway.app',
+                      border: OutlineInputBorder(),
+                    ),
+                    keyboardType: TextInputType.url,
+                  ),
+                  const SizedBox(height: 8),
+                  FilledButton(
+                    onPressed: () async {
+                      await ref
+                          .read(publicBaseUrlProvider.notifier)
+                          .setUrl(_urlCtrl.text);
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('URL pública guardada')),
+                      );
+                    },
+                    child: const Text('Guardar URL pública'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Card(
             child: ListTile(
               leading: const Icon(Icons.description_outlined),
               title: const Text('Plantilla Marketplace'),
@@ -102,9 +175,10 @@ class AccountScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 16),
           const Text(
-            'Nota: la app solo genera borradores locales con plantilla '
-            'configurable. No publica a Facebook ni usa Meta Graph API. '
-            'Copia el texto y pégalo en Marketplace u otro canal.',
+            'Nota: la tienda pública muestra el inventario disponible. '
+            'Las publicaciones son grupos de ofertas con URL /p/:slug. '
+            'Exportar como borrador solo copia texto para Marketplace; '
+            'la app no publica a Facebook.',
             style: TextStyle(fontSize: 13),
           ),
         ],

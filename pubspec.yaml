@@ -1,7 +1,7 @@
 name: mochila_market
-description: "MochilaMarket — inventario de mochilas, borradores Marketplace con plantilla, fotos e IA externa."
+description: "MochilaMarket — inventario de mochilas, tienda pública, publicaciones (grupos de ofertas), plantilla Marketplace, fotos e IA externa."
 publish_to: 'none'
-version: 1.1.0+2
+version: 1.2.0+3
 
 environment:
   sdk: ^3.5.0
@@ -10,6 +10,8 @@ dependencies:
   flutter:
     sdk: flutter
   flutter_localizations:
+    sdk: flutter
+  flutter_web_plugins:
     sdk: flutter
   cupertino_icons: ^1.0.8
   flutter_riverpod: ^2.6.1

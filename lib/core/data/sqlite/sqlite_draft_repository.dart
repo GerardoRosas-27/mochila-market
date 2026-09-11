@@ -32,6 +32,19 @@ class SqliteDraftRepository implements DraftRepository {
   }
 
   @override
+  Future<ListingDraft?> getBySlug(String slug) async {
+    final db = await _db.database;
+    final rows = await db.query(
+      'listing_drafts',
+      where: 'slug = ?',
+      whereArgs: [slug],
+      limit: 1,
+    );
+    if (rows.isEmpty) return null;
+    return AppDatabase.draftFromRow(rows.first);
+  }
+
+  @override
   Future<void> upsert(ListingDraft draft) async {
     final db = await _db.database;
     await db.insert(

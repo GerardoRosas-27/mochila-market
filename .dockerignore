@@ -1,0 +1,9 @@
+.git
+.dart_tool
+build
+dist
+.idea
+ios/Pods
+android/.gradle
+**/*.apk
+**/*.zip

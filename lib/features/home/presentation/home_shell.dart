@@ -27,9 +27,9 @@ class HomeShell extends StatelessWidget {
             label: 'Fotos',
           ),
           NavigationDestination(
-            icon: Icon(Icons.drafts_outlined),
-            selectedIcon: Icon(Icons.drafts),
-            label: 'Borradores',
+            icon: Icon(Icons.local_offer_outlined),
+            selectedIcon: Icon(Icons.local_offer),
+            label: 'Publicaciones',
           ),
           NavigationDestination(
             icon: Icon(Icons.inventory_2_outlined),

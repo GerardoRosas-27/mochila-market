@@ -7,6 +7,7 @@ import '../../../core/models/company_data.dart';
 import '../../../core/models/listing_draft.dart';
 import '../../../core/models/marketplace_template.dart';
 import '../../../core/models/product.dart';
+import '../../../core/utils/slug.dart';
 import '../../template/domain/marketplace_template_renderer.dart';
 
 class MarketplaceNotifier extends StateNotifier<List<ListingDraft>> {
@@ -26,6 +27,71 @@ class MarketplaceNotifier extends StateNotifier<List<ListingDraft>> {
     state = await _repo.getAll();
   }
 
+  Future<ListingDraft?> getBySlug(String slug) => _repo.getBySlug(slug);
+
+  /// Crea una publicación = grupo de ofertas a partir de productos del inventario.
+  Future<ListingDraft> createOfferGroup({
+    required String title,
+    required List<Product> products,
+    String description = '',
+    String? photoGroupId,
+    List<String> extraImages = const [],
+    MarketplaceTemplate? template,
+    CompanyData? company,
+  }) async {
+    if (products.isEmpty) {
+      throw ArgumentError('Selecciona al menos un producto');
+    }
+    final id = _uuid.v4();
+    final ids = products.map((p) => p.id).toList();
+    final prices = products.map((p) => p.price).toList()..sort();
+    final minPrice = prices.first;
+    final images = <String>[
+      ...extraImages,
+      for (final p in products) ...p.photoPaths,
+    ];
+    final seen = <String>{};
+    final unique = [for (final p in images) if (seen.add(p)) p];
+
+    var desc = description;
+    if (desc.isEmpty && template != null) {
+      final parts = <String>[];
+      for (final p in products) {
+        final rendered = _renderer.render(
+          template: template,
+          product: p,
+          company: company,
+        );
+        parts.add('— ${rendered.title}\n${rendered.body}');
+      }
+      desc = parts.join('\n\n');
+    }
+
+    final draft = ListingDraft(
+      id: id,
+      title: title.trim().isEmpty
+          ? 'Oferta (${products.length} mochilas)'
+          : title.trim(),
+      price: minPrice,
+      description: desc,
+      imagePath: unique.isNotEmpty ? unique.first : null,
+      imagePaths: unique,
+      productId: ids.first,
+      productIds: ids,
+      photoGroupId: photoGroupId,
+      marketplace: 'local',
+      status: ListingStatus.activa,
+      createdAt: DateTime.now(),
+      slug: slugify(
+        title.trim().isEmpty ? products.first.name : title.trim(),
+        id,
+      ),
+    );
+    await _repo.upsert(draft);
+    await reload();
+    return draft;
+  }
+
   Future<ListingDraft> create({
     required String title,
     required double price,
@@ -33,65 +99,78 @@ class MarketplaceNotifier extends StateNotifier<List<ListingDraft>> {
     String? imagePath,
     List<String> imagePaths = const [],
     String? productId,
+    List<String> productIds = const [],
     String? photoGroupId,
     String marketplace = 'local',
   }) async {
     final images = imagePaths.isNotEmpty
         ? imagePaths
         : (imagePath != null ? [imagePath] : <String>[]);
+    final id = _uuid.v4();
+    final ids = <String>[
+      ...productIds,
+      if (productId != null && productId.isNotEmpty) productId,
+    ];
     final draft = ListingDraft(
-      id: _uuid.v4(),
+      id: id,
       title: title,
       price: price,
       description: description,
       imagePath: images.isNotEmpty ? images.first : imagePath,
       imagePaths: images,
-      productId: productId,
+      productId: ids.isNotEmpty ? ids.first : productId,
+      productIds: ids,
       photoGroupId: photoGroupId,
       marketplace: marketplace,
-      status: ListingStatus.borrador,
+      status: ListingStatus.activa,
       createdAt: DateTime.now(),
+      slug: slugify(title, id),
     );
     await _repo.upsert(draft);
     await reload();
     return draft;
   }
 
-  Future<ListingDraft> createFromProduct({
-    required Product product,
+  /// Texto de plantilla Marketplace para pegar (exportar como borrador).
+  String exportMarketplaceText({
+    required ListingDraft publication,
+    required List<Product> products,
     required MarketplaceTemplate template,
     CompanyData? company,
-    String? photoGroupId,
-    List<String>? extraImages,
-  }) async {
-    final rendered = _renderer.render(
-      template: template,
-      product: product,
-      company: company,
-    );
-    final images = <String>[
-      ...?extraImages,
-      ...product.photoPaths,
-    ];
-    // dedupe keep order
-    final seen = <String>{};
-    final unique = <String>[];
-    for (final p in images) {
-      if (seen.add(p)) unique.add(p);
+  }) {
+    final linked = products
+        .where((p) => publication.allProductIds.contains(p.id))
+        .toList();
+    if (linked.isEmpty) {
+      return '${publication.title}\n\n${publication.description}\n\n'
+          'Precio desde: \$${publication.price.toStringAsFixed(0)} MXN';
     }
-    return create(
-      title: rendered.title.isEmpty ? product.name : rendered.title,
-      price: product.price,
-      description: rendered.body,
-      imagePaths: unique,
-      productId: product.id,
-      photoGroupId: photoGroupId,
-      marketplace: 'local',
-    );
+    final buf = StringBuffer();
+    buf.writeln(publication.title);
+    buf.writeln();
+    if (publication.description.trim().isNotEmpty) {
+      buf.writeln(publication.description.trim());
+      buf.writeln();
+    }
+    for (final p in linked) {
+      final r = _renderer.render(
+        template: template,
+        product: p,
+        company: company,
+      );
+      buf.writeln('———');
+      buf.writeln(r.title);
+      buf.writeln(r.body);
+      buf.writeln();
+    }
+    return buf.toString().trim();
   }
 
   Future<void> updateDraft(ListingDraft draft) async {
-    await _repo.upsert(draft);
+    final withSlug = draft.slug.isEmpty
+        ? draft.copyWith(slug: slugify(draft.title, draft.id))
+        : draft;
+    await _repo.upsert(withSlug);
     await reload();
   }
 
