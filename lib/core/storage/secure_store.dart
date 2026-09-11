@@ -25,10 +25,6 @@ class SecureStore {
   static const _keyLocalDisplayName = 'local_auth_display_name';
   static const _keyLocalSessionActive = 'local_auth_session_active';
 
-  // Meta Graph secrets
-  static const _keyMetaAppSecret = 'meta_app_secret';
-  static const _keyMetaUserToken = 'meta_user_access_token';
-
   Future<void> saveImageApiKey(String value) =>
       _storage.write(key: _keyImageApi, value: value);
 
@@ -107,17 +103,6 @@ class SecureStore {
   Future<void> clearLocalSession() async {
     await _storage.write(key: _keyLocalSessionActive, value: '0');
   }
-
-  // —— Meta ——
-  Future<void> saveMetaAppSecret(String value) =>
-      _storage.write(key: _keyMetaAppSecret, value: value);
-
-  Future<String?> readMetaAppSecret() => _storage.read(key: _keyMetaAppSecret);
-
-  Future<void> saveMetaUserToken(String value) =>
-      _storage.write(key: _keyMetaUserToken, value: value);
-
-  Future<String?> readMetaUserToken() => _storage.read(key: _keyMetaUserToken);
 }
 
 final secureStoreProvider = Provider<SecureStore>((ref) {

@@ -7,11 +7,10 @@ class ListingDraft {
     this.imagePath,
     this.imagePaths = const [],
     this.productId,
-    this.marketplace = 'demo',
+    this.photoGroupId,
+    this.marketplace = 'local',
     this.status = ListingStatus.borrador,
     this.createdAt,
-    this.metaPostId,
-    this.publishChannel = PublishChannel.borradorLocal,
   });
 
   final String id;
@@ -21,11 +20,10 @@ class ListingDraft {
   final String? imagePath;
   final List<String> imagePaths;
   final String? productId;
+  final String? photoGroupId;
   final String marketplace;
   final ListingStatus status;
   final DateTime? createdAt;
-  final String? metaPostId;
-  final PublishChannel publishChannel;
 
   List<String> get allImages {
     if (imagePaths.isNotEmpty) return imagePaths;
@@ -41,11 +39,11 @@ class ListingDraft {
     String? imagePath,
     List<String>? imagePaths,
     String? productId,
+    String? photoGroupId,
     String? marketplace,
     ListingStatus? status,
     DateTime? createdAt,
-    String? metaPostId,
-    PublishChannel? publishChannel,
+    bool clearPhotoGroupId = false,
   }) {
     return ListingDraft(
       id: id ?? this.id,
@@ -55,11 +53,11 @@ class ListingDraft {
       imagePath: imagePath ?? this.imagePath,
       imagePaths: imagePaths ?? this.imagePaths,
       productId: productId ?? this.productId,
+      photoGroupId:
+          clearPhotoGroupId ? null : (photoGroupId ?? this.photoGroupId),
       marketplace: marketplace ?? this.marketplace,
       status: status ?? this.status,
       createdAt: createdAt ?? this.createdAt,
-      metaPostId: metaPostId ?? this.metaPostId,
-      publishChannel: publishChannel ?? this.publishChannel,
     );
   }
 
@@ -71,22 +69,22 @@ class ListingDraft {
         'imagePath': imagePath,
         'imagePaths': imagePaths,
         'productId': productId,
+        'photoGroupId': photoGroupId,
         'marketplace': marketplace,
         'status': status.name,
         'createdAt': createdAt?.toIso8601String(),
-        'metaPostId': metaPostId,
-        'publishChannel': publishChannel.name,
       };
 
   factory ListingDraft.fromJson(Map<String, dynamic> json) => ListingDraft(
         id: json['id'] as String,
         title: json['title'] as String,
         price: (json['price'] as num).toDouble(),
-        description: json['description'] as String,
+        description: json['description'] as String? ?? '',
         imagePath: json['imagePath'] as String?,
         imagePaths: (json['imagePaths'] as List?)?.cast<String>() ?? const [],
         productId: json['productId'] as String?,
-        marketplace: json['marketplace'] as String? ?? 'demo',
+        photoGroupId: json['photoGroupId'] as String?,
+        marketplace: json['marketplace'] as String? ?? 'local',
         status: ListingStatus.values.firstWhere(
           (e) => e.name == json['status'],
           orElse: () => ListingStatus.borrador,
@@ -94,28 +92,15 @@ class ListingDraft {
         createdAt: json['createdAt'] != null
             ? DateTime.tryParse(json['createdAt'] as String)
             : null,
-        metaPostId: json['metaPostId'] as String?,
-        publishChannel: PublishChannel.values.firstWhere(
-          (e) => e.name == json['publishChannel'],
-          orElse: () => PublishChannel.borradorLocal,
-        ),
       );
 }
 
 enum ListingStatus { borrador, listo, publicado }
 
-enum PublishChannel {
-  borradorLocal,
-  pageFeed,
-  /// Marketplace de ítems no está expuesto de forma pública en Graph API.
-  marketplaceNoDisponible,
-}
-
-extension PublishChannelLabel on PublishChannel {
+extension ListingStatusLabel on ListingStatus {
   String get labelEs => switch (this) {
-        PublishChannel.borradorLocal => 'Borrador local',
-        PublishChannel.pageFeed => 'Publicación en Página (Graph)',
-        PublishChannel.marketplaceNoDisponible =>
-          'Marketplace (no disponible vía API pública)',
+        ListingStatus.borrador => 'Borrador',
+        ListingStatus.listo => 'Listo para pegar',
+        ListingStatus.publicado => 'Marcado publicado (local)',
       };
 }

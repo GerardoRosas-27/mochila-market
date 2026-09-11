@@ -1,12 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/models/listing_draft.dart';
+import '../../../core/models/photo_group.dart';
 import '../../../core/models/product.dart';
 import '../../../core/widgets/local_image.dart';
+import '../../company/presentation/company_provider.dart';
 import '../../inventory/presentation/inventory_provider.dart';
-import '../../meta/presentation/meta_provider.dart';
+import '../../photo_groups/presentation/photo_group_provider.dart';
+import '../../template/presentation/template_provider.dart';
 import 'marketplace_provider.dart';
 
 class MarketplaceScreen extends ConsumerWidget {
@@ -15,14 +20,24 @@ class MarketplaceScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final drafts = ref.watch(marketplaceProvider);
+    final groups = ref.watch(photoGroupProvider);
     final currency = NumberFormat.currency(locale: 'es_MX', symbol: '\$');
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Publicaciones / Marketplace')),
+      appBar: AppBar(
+        title: const Text('Borradores Marketplace'),
+        actions: [
+          IconButton(
+            tooltip: 'Grupos de fotos',
+            icon: const Icon(Icons.photo_library_outlined),
+            onPressed: () => _managePhotoGroups(context, ref),
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showCreateFlow(context, ref),
         icon: const Icon(Icons.add),
-        label: const Text('Nueva publicación'),
+        label: const Text('Nuevo borrador'),
       ),
       body: Column(
         children: [
@@ -31,9 +46,9 @@ class MarketplaceScreen extends ConsumerWidget {
             child: const Padding(
               padding: EdgeInsets.all(12),
               child: Text(
-                'Facebook Marketplace (ítems) no está disponible vía Graph API '
-                'pública. Puedes crear borradores locales o publicar en el '
-                'feed de tu Página Meta. Sin scraping.',
+                'Solo borradores locales. Usa la plantilla configurable '
+                '(Cuenta → Plantilla) y copia el texto para pegarlo en '
+                'Marketplace. La app no publica a Facebook.',
                 style: TextStyle(fontSize: 13),
               ),
             ),
@@ -44,8 +59,8 @@ class MarketplaceScreen extends ConsumerWidget {
                     child: Padding(
                       padding: EdgeInsets.all(24),
                       child: Text(
-                        'No hay publicaciones. Elige un producto del inventario '
-                        'o crea un borrador manual.',
+                        'No hay borradores. Elige un producto del inventario '
+                        'o crea uno manual con fotos / grupo de fotos.',
                         textAlign: TextAlign.center,
                       ),
                     ),
@@ -56,14 +71,14 @@ class MarketplaceScreen extends ConsumerWidget {
                     separatorBuilder: (_, __) => const SizedBox(height: 8),
                     itemBuilder: (context, index) {
                       final d = drafts[index];
-                      final img = d.allImages;
+                      final imgs = _imagesForDraft(d, groups);
                       return Card(
                         child: ListTile(
-                          leading: img.isNotEmpty
+                          leading: imgs.isNotEmpty
                               ? ClipRRect(
                                   borderRadius: BorderRadius.circular(8),
                                   child: LocalImage(
-                                    path: img.first,
+                                    path: imgs.first,
                                     width: 56,
                                     height: 56,
                                     fit: BoxFit.cover,
@@ -75,9 +90,9 @@ class MarketplaceScreen extends ConsumerWidget {
                           title: Text(d.title),
                           subtitle: Text(
                             '${currency.format(d.price)} · '
-                            '${d.publishChannel.labelEs}\n'
-                            '${_statusLabel(d.status)}'
-                            '${d.metaPostId != null ? ' · ${d.metaPostId}' : ''}',
+                            '${d.status.labelEs}'
+                            '${d.photoGroupId != null ? ' · grupo fotos' : ''}'
+                            '${imgs.length > 1 ? ' · ${imgs.length} fotos' : ''}',
                           ),
                           isThreeLine: true,
                           trailing: PopupMenuButton<String>(
@@ -87,8 +102,8 @@ class MarketplaceScreen extends ConsumerWidget {
                               switch (v) {
                                 case 'editar':
                                   await _editDraft(context, ref, d);
-                                case 'page':
-                                  await _publishToPage(context, ref, d);
+                                case 'copiar':
+                                  await _copyDraft(context, d);
                                 case 'listo':
                                   await n.updateStatus(
                                     d.id,
@@ -109,8 +124,8 @@ class MarketplaceScreen extends ConsumerWidget {
                                 child: Text('Editar'),
                               ),
                               PopupMenuItem(
-                                value: 'page',
-                                child: Text('Publicar en Página (Graph)'),
+                                value: 'copiar',
+                                child: Text('Copiar texto (pegar fuera)'),
                               ),
                               PopupMenuItem(
                                 value: 'listo',
@@ -137,11 +152,36 @@ class MarketplaceScreen extends ConsumerWidget {
     );
   }
 
-  String _statusLabel(ListingStatus s) => switch (s) {
-        ListingStatus.borrador => 'Borrador',
-        ListingStatus.listo => 'Listo',
-        ListingStatus.publicado => 'Publicado',
-      };
+  List<String> _imagesForDraft(
+    ListingDraft d,
+    List<PhotoGroup> groups,
+  ) {
+    final fromDraft = d.allImages;
+    if (d.photoGroupId != null) {
+      try {
+        final g = groups.firstWhere((x) => x.id == d.photoGroupId);
+        final merged = [...g.photoPaths, ...fromDraft];
+        final seen = <String>{};
+        return [
+          for (final p in merged)
+            if (seen.add(p)) p,
+        ];
+      } catch (_) {}
+    }
+    return fromDraft;
+  }
+
+  Future<void> _copyDraft(BuildContext context, ListingDraft d) async {
+    final text = '${d.title}\n\n${d.description}\n\nPrecio: '
+        '\$${d.price.toStringAsFixed(0)} MXN';
+    await Clipboard.setData(ClipboardData(text: text));
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Texto copiado. Pégalo en Marketplace u otra app.'),
+      ),
+    );
+  }
 
   Future<void> _showCreateFlow(BuildContext context, WidgetRef ref) async {
     final products = ref.read(inventoryProvider);
@@ -152,12 +192,12 @@ class MarketplaceScreen extends ConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             const ListTile(
-              title: Text('Nueva publicación'),
-              subtitle: Text('Prefill desde inventario o manual'),
+              title: Text('Nuevo borrador'),
+              subtitle: Text('Plantilla + inventario o manual'),
             ),
             ListTile(
               leading: const Icon(Icons.inventory_2),
-              title: const Text('Desde inventario'),
+              title: const Text('Desde inventario (aplica plantilla)'),
               enabled: products.isNotEmpty,
               onTap: () => Navigator.pop(ctx, 'inventory'),
             ),
@@ -172,10 +212,19 @@ class MarketplaceScreen extends ConsumerWidget {
     );
     if (!context.mounted || choice == null) return;
     if (choice == 'inventory') {
-      final product = await _pickProduct(context, ref, products);
+      final product = await _pickProduct(context, products);
       if (product == null || !context.mounted) return;
-      final draft =
-          ref.read(marketplaceProvider.notifier).createFromProduct(product);
+      final groupId = await _pickPhotoGroupOptional(context, ref);
+      if (!context.mounted) return;
+      final template = ref.read(templateProvider);
+      final company = ref.read(companyProvider);
+      final draft = await ref.read(marketplaceProvider.notifier).createFromProduct(
+            product: product,
+            template: template,
+            company: company,
+            photoGroupId: groupId,
+          );
+      if (!context.mounted) return;
       await _editDraft(context, ref, draft);
     } else {
       await _editDraft(context, ref, null);
@@ -184,7 +233,6 @@ class MarketplaceScreen extends ConsumerWidget {
 
   Future<Product?> _pickProduct(
     BuildContext context,
-    WidgetRef ref,
     List<Product> products,
   ) {
     return showDialog<Product>(
@@ -203,6 +251,168 @@ class MarketplaceScreen extends ConsumerWidget {
     );
   }
 
+  Future<String?> _pickPhotoGroupOptional(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
+    final groups = ref.read(photoGroupProvider);
+    final choice = await showDialog<String>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: const Text('Grupo de fotos (opcional)'),
+        children: [
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(ctx, ''),
+            child: const Text('Sin grupo'),
+          ),
+          ...groups.map(
+            (g) => SimpleDialogOption(
+              onPressed: () => Navigator.pop(ctx, g.id),
+              child: Text('${g.name} (${g.photoPaths.length} fotos)'),
+            ),
+          ),
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(ctx, '__new__'),
+            child: const Text('Crear grupo nuevo…'),
+          ),
+        ],
+      ),
+    );
+    if (choice == null || choice.isEmpty) return null;
+    if (choice == '__new__') {
+      if (!context.mounted) return null;
+      return _createPhotoGroupFlow(context, ref);
+    }
+    return choice;
+  }
+
+  Future<String?> _createPhotoGroupFlow(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
+    final nameCtrl = TextEditingController(text: 'Grupo ${DateTime.now().day}');
+    var photos = <String>[];
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) => AlertDialog(
+          title: const Text('Nuevo grupo de fotos'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameCtrl,
+                decoration: const InputDecoration(labelText: 'Nombre'),
+              ),
+              const SizedBox(height: 8),
+              Text('${photos.length} foto(s) seleccionadas'),
+              TextButton.icon(
+                onPressed: () async {
+                  final files = await ImagePicker().pickMultiImage();
+                  if (files.isEmpty) return;
+                  setLocal(() {
+                    photos = [...photos, ...files.map((f) => f.path)];
+                  });
+                },
+                icon: const Icon(Icons.add_a_photo),
+                label: const Text('Agregar fotos'),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Crear'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (ok != true) return null;
+    final g = await ref.read(photoGroupProvider.notifier).create(
+          name: nameCtrl.text,
+          photoPaths: photos,
+        );
+    return g.id;
+  }
+
+  Future<void> _managePhotoGroups(BuildContext context, WidgetRef ref) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) {
+        return Consumer(
+          builder: (ctx, ref, _) {
+            final groups = ref.watch(photoGroupProvider);
+            return SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          'Grupos de fotos',
+                          style: Theme.of(ctx).textTheme.titleLarge,
+                        ),
+                        const Spacer(),
+                        IconButton(
+                          icon: const Icon(Icons.add),
+                          onPressed: () async {
+                            await _createPhotoGroupFlow(context, ref);
+                          },
+                        ),
+                      ],
+                    ),
+                    if (groups.isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.all(24),
+                        child: Text('Aún no hay grupos.'),
+                      )
+                    else
+                      Flexible(
+                        child: ListView.builder(
+                          shrinkWrap: true,
+                          itemCount: groups.length,
+                          itemBuilder: (_, i) {
+                            final g = groups[i];
+                            return ListTile(
+                              leading: g.photoPaths.isNotEmpty
+                                  ? LocalImage(
+                                      path: g.photoPaths.first,
+                                      width: 48,
+                                      height: 48,
+                                      fit: BoxFit.cover,
+                                    )
+                                  : const Icon(Icons.photo),
+                              title: Text(g.name),
+                              subtitle:
+                                  Text('${g.photoPaths.length} foto(s)'),
+                              trailing: IconButton(
+                                icon: const Icon(Icons.delete_outline),
+                                onPressed: () => ref
+                                    .read(photoGroupProvider.notifier)
+                                    .remove(g.id),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   Future<void> _editDraft(
     BuildContext context,
     WidgetRef ref,
@@ -214,37 +424,88 @@ class MarketplaceScreen extends ConsumerWidget {
       text: existing != null ? existing.price.toStringAsFixed(0) : '',
     );
     final descCtrl = TextEditingController(text: existing?.description ?? '');
-    var channel = existing?.publishChannel ?? PublishChannel.borradorLocal;
+    var photos = List<String>.from(existing?.imagePaths ?? const []);
+    if (photos.isEmpty && existing?.imagePath != null) {
+      photos = [existing!.imagePath!];
+    }
+    String? photoGroupId = existing?.photoGroupId;
 
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLocal) => AlertDialog(
-          title: Text(isNew ? 'Nuevo borrador' : 'Editar publicación'),
+          title: Text(isNew ? 'Nuevo borrador' : 'Editar borrador'),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (existing != null && existing.allImages.isNotEmpty)
+                if (photos.isNotEmpty)
                   SizedBox(
                     height: 64,
                     child: ListView(
                       scrollDirection: Axis.horizontal,
-                      children: existing.allImages
-                          .map(
-                            (p) => Padding(
-                              padding: const EdgeInsets.only(right: 8),
-                              child: LocalImage(
-                                path: p,
-                                width: 64,
-                                height: 64,
-                                fit: BoxFit.cover,
-                              ),
+                      children: [
+                        for (var i = 0; i < photos.length; i++)
+                          Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: Stack(
+                              children: [
+                                LocalImage(
+                                  path: photos[i],
+                                  width: 64,
+                                  height: 64,
+                                  fit: BoxFit.cover,
+                                ),
+                                Positioned(
+                                  right: 0,
+                                  top: 0,
+                                  child: InkWell(
+                                    onTap: () => setLocal(
+                                      () => photos = [...photos]..removeAt(i),
+                                    ),
+                                    child: const Icon(
+                                      Icons.close,
+                                      size: 18,
+                                      color: Colors.red,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
-                          )
-                          .toList(),
+                          ),
+                      ],
                     ),
                   ),
+                Wrap(
+                  spacing: 8,
+                  children: [
+                    TextButton.icon(
+                      onPressed: () async {
+                        final files = await ImagePicker().pickMultiImage();
+                        if (files.isEmpty) return;
+                        setLocal(() {
+                          photos = [
+                            ...photos,
+                            ...files.map((f) => f.path),
+                          ];
+                        });
+                      },
+                      icon: const Icon(Icons.add_a_photo),
+                      label: const Text('Fotos'),
+                    ),
+                    TextButton.icon(
+                      onPressed: () async {
+                        final id =
+                            await _pickPhotoGroupOptional(context, ref);
+                        setLocal(() => photoGroupId = id);
+                      },
+                      icon: const Icon(Icons.photo_library),
+                      label: Text(
+                        photoGroupId == null ? 'Grupo' : 'Grupo ✓',
+                      ),
+                    ),
+                  ],
+                ),
                 TextField(
                   controller: titleCtrl,
                   decoration: const InputDecoration(labelText: 'Título'),
@@ -258,33 +519,9 @@ class MarketplaceScreen extends ConsumerWidget {
                 const SizedBox(height: 8),
                 TextField(
                   controller: descCtrl,
-                  maxLines: 4,
+                  maxLines: 6,
                   decoration: const InputDecoration(labelText: 'Descripción'),
                 ),
-                const SizedBox(height: 8),
-                DropdownButtonFormField<PublishChannel>(
-                  initialValue: channel,
-                  decoration: const InputDecoration(labelText: 'Canal'),
-                  items: PublishChannel.values
-                      .map(
-                        (c) => DropdownMenuItem(
-                          value: c,
-                          child: Text(c.labelEs),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (v) => setLocal(() => channel = v ?? channel),
-                ),
-                if (channel == PublishChannel.marketplaceNoDisponible)
-                  const Padding(
-                    padding: EdgeInsets.only(top: 8),
-                    child: Text(
-                      'Marketplace de ítems requiere herramientas de Meta '
-                      'fuera de la API pública. Guarda como borrador o '
-                      'publica en el feed de Página.',
-                      style: TextStyle(fontSize: 12),
-                    ),
-                  ),
               ],
             ),
           ),
@@ -305,14 +542,14 @@ class MarketplaceScreen extends ConsumerWidget {
     if (ok != true || !context.mounted) return;
     final n = ref.read(marketplaceProvider.notifier);
     if (isNew) {
-      n.create(
+      await n.create(
         title: titleCtrl.text.trim().isEmpty
             ? 'Sin título'
             : titleCtrl.text.trim(),
         price: double.tryParse(priceCtrl.text.replaceAll(',', '')) ?? 0,
         description: descCtrl.text.trim(),
-        publishChannel: channel,
-        marketplace: channel == PublishChannel.pageFeed ? 'page_feed' : 'demo',
+        imagePaths: photos,
+        photoGroupId: photoGroupId,
       );
     } else {
       await n.updateDraft(
@@ -323,45 +560,12 @@ class MarketplaceScreen extends ConsumerWidget {
           price: double.tryParse(priceCtrl.text.replaceAll(',', '')) ??
               existing.price,
           description: descCtrl.text.trim(),
-          publishChannel: channel,
+          imagePaths: photos,
+          imagePath: photos.isNotEmpty ? photos.first : existing.imagePath,
+          photoGroupId: photoGroupId,
+          clearPhotoGroupId: photoGroupId == null,
         ),
       );
     }
-  }
-
-  Future<void> _publishToPage(
-    BuildContext context,
-    WidgetRef ref,
-    ListingDraft d,
-  ) async {
-    final meta = ref.read(metaProvider);
-    if (!meta.hasToken || meta.pageId.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Configura Meta Graph (token + Page ID) en Cuenta → Meta Graph API',
-          ),
-        ),
-      );
-      return;
-    }
-    final message =
-        '${d.title}\n\n${d.description}\n\nPrecio: \$${d.price.toStringAsFixed(0)} MXN';
-    final result =
-        await ref.read(metaProvider.notifier).publishPagePost(message);
-    if (!context.mounted) return;
-    if (result.ok) {
-      await ref.read(marketplaceProvider.notifier).updateDraft(
-            d.copyWith(
-              status: ListingStatus.publicado,
-              metaPostId: result.postId,
-              publishChannel: PublishChannel.pageFeed,
-            ),
-          );
-    }
-    if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(result.message)),
-    );
   }
 }

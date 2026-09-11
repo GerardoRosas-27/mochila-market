@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../auth/presentation/auth_provider.dart';
-import '../../meta/presentation/meta_provider.dart';
 
 class AccountScreen extends ConsumerWidget {
   const AccountScreen({super.key});
@@ -11,7 +10,6 @@ class AccountScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final auth = ref.watch(authProvider);
-    final meta = ref.watch(metaProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -71,22 +69,22 @@ class AccountScreen extends ConsumerWidget {
           const SizedBox(height: 12),
           Card(
             child: ListTile(
-              leading: const Icon(Icons.facebook),
-              title: const Text('Meta Graph API'),
-              subtitle: Text(
-                meta.connectionOk
-                    ? 'Conexión OK · Page ${meta.pageId.isEmpty ? "(sin ID)" : meta.pageId}'
-                    : 'Configurar App ID, token, Page ID',
+              leading: const Icon(Icons.description_outlined),
+              title: const Text('Plantilla Marketplace'),
+              subtitle: const Text(
+                'Título y cuerpo con placeholders {{nombre}}, {{precio}}…',
               ),
               trailing: const Icon(Icons.chevron_right),
-              onTap: () => context.push('/meta'),
+              onTap: () => context.push('/plantilla'),
             ),
           ),
           Card(
             child: ListTile(
               leading: const Icon(Icons.store),
               title: const Text('Datos de empresa'),
-              subtitle: const Text('Nombre, ubicación, croquis, horarios'),
+              subtitle: const Text(
+                'Nombre, ubicación, croquis, horarios (defaults de plantilla)',
+              ),
               trailing: const Icon(Icons.chevron_right),
               onTap: () => context.push('/empresa'),
             ),
@@ -95,17 +93,18 @@ class AccountScreen extends ConsumerWidget {
             child: ListTile(
               leading: const Icon(Icons.tune),
               title: const Text('Ajustes de modelos IA'),
-              subtitle: const Text('API de imagen, multimodal y remove.bg'),
+              subtitle: const Text(
+                'API externa: imagen, multimodal y quitar fondo',
+              ),
               trailing: const Icon(Icons.chevron_right),
               onTap: () => context.push('/ajustes-ia'),
             ),
           ),
           const SizedBox(height: 16),
           const Text(
-            'Nota: no se usa scraping de Meta. Las publicaciones son '
-            'borradores locales o posts en feed de Página vía Graph API. '
-            'Los ítems de Facebook Marketplace no están disponibles en la '
-            'API pública.',
+            'Nota: la app solo genera borradores locales con plantilla '
+            'configurable. No publica a Facebook ni usa Meta Graph API. '
+            'Copia el texto y pégalo en Marketplace u otro canal.',
             style: TextStyle(fontSize: 13),
           ),
         ],

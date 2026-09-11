@@ -19,6 +19,7 @@ class _AiSettingsScreenState extends ConsumerState<AiSettingsScreen> {
   late TextEditingController _multiKey;
   late TextEditingController _multiModel;
   late TextEditingController _removeKey;
+  late TextEditingController _genericEndpoint;
   BgProvider _bg = BgProvider.demo;
   var _ready = false;
 
@@ -32,6 +33,7 @@ class _AiSettingsScreenState extends ConsumerState<AiSettingsScreen> {
     _multiKey = TextEditingController();
     _multiModel = TextEditingController();
     _removeKey = TextEditingController();
+    _genericEndpoint = TextEditingController();
     WidgetsBinding.instance.addPostFrameCallback((_) => _syncFromState());
   }
 
@@ -44,6 +46,7 @@ class _AiSettingsScreenState extends ConsumerState<AiSettingsScreen> {
     _multiKey.text = s.multimodalApiKey;
     _multiModel.text = s.multimodalModel;
     _removeKey.text = s.removeBgApiKey;
+    _genericEndpoint.text = s.genericBgEndpoint;
     _bg = s.bgProvider;
     setState(() => _ready = true);
   }
@@ -57,6 +60,7 @@ class _AiSettingsScreenState extends ConsumerState<AiSettingsScreen> {
     _multiKey.dispose();
     _multiModel.dispose();
     _removeKey.dispose();
+    _genericEndpoint.dispose();
     super.dispose();
   }
 
@@ -73,6 +77,7 @@ class _AiSettingsScreenState extends ConsumerState<AiSettingsScreen> {
           ? 'gpt-4o-mini'
           : _multiModel.text.trim(),
       removeBgApiKey: _removeKey.text.trim(),
+      genericBgEndpoint: _genericEndpoint.text.trim(),
       bgProvider: _bg,
     );
     await ref.read(aiSettingsProvider.notifier).save(settings);
@@ -106,7 +111,7 @@ class _AiSettingsScreenState extends ConsumerState<AiSettingsScreen> {
         padding: const EdgeInsets.all(16),
         children: [
           Text(
-            'Proveedor de fondo',
+            'Proveedor de fondo (pluggable)',
             style: Theme.of(context).textTheme.titleMedium,
           ),
           const SizedBox(height: 8),
@@ -122,22 +127,37 @@ class _AiSettingsScreenState extends ConsumerState<AiSettingsScreen> {
                 label: Text('remove.bg'),
                 icon: Icon(Icons.cloud),
               ),
+              ButtonSegment(
+                value: BgProvider.genericHttp,
+                label: Text('HTTP'),
+                icon: Icon(Icons.api),
+              ),
             ],
             selected: {_bg},
             onSelectionChanged: (s) => setState(() => _bg = s.first),
           ),
           const SizedBox(height: 8),
-          TextField(
-            controller: _removeKey,
-            obscureText: true,
-            decoration: const InputDecoration(
-              labelText: 'API key remove.bg',
-              helperText: 'Se guarda en secure storage',
+          if (_bg == BgProvider.removeBg)
+            TextField(
+              controller: _removeKey,
+              obscureText: true,
+              decoration: const InputDecoration(
+                labelText: 'API key remove.bg',
+                helperText: 'Se guarda en secure storage',
+              ),
             ),
-          ),
+          if (_bg == BgProvider.genericHttp)
+            TextField(
+              controller: _genericEndpoint,
+              decoration: const InputDecoration(
+                labelText: 'Endpoint HTTP genérico',
+                helperText:
+                    'URL completa, o vacío para {base URL imagen}/remove-bg',
+              ),
+            ),
           const Divider(height: 32),
           Text(
-            'API de imagen',
+            'API de imagen (externa)',
             style: Theme.of(context).textTheme.titleMedium,
           ),
           const SizedBox(height: 8),
@@ -150,7 +170,7 @@ class _AiSettingsScreenState extends ConsumerState<AiSettingsScreen> {
           const SizedBox(height: 8),
           TextField(
             controller: _imageModel,
-            decoration: const InputDecoration(labelText: 'Modelo de imagen'),
+            decoration: const InputDecoration(labelText: 'Modelo / model id'),
           ),
           const SizedBox(height: 8),
           TextField(
@@ -163,7 +183,7 @@ class _AiSettingsScreenState extends ConsumerState<AiSettingsScreen> {
           ),
           const Divider(height: 32),
           Text(
-            'API multimodal (inbox IA)',
+            'API multimodal (inbox / captions)',
             style: Theme.of(context).textTheme.titleMedium,
           ),
           const SizedBox(height: 8),

@@ -7,6 +7,7 @@ class AiSettings {
     this.multimodalApiKey = '',
     this.multimodalModel = 'gpt-4o-mini',
     this.removeBgApiKey = '',
+    this.genericBgEndpoint = '',
     this.bgProvider = BgProvider.demo,
   });
 
@@ -17,6 +18,8 @@ class AiSettings {
   final String multimodalApiKey;
   final String multimodalModel;
   final String removeBgApiKey;
+  /// Endpoint relativo o absoluto para proveedor genérico HTTP de fondo.
+  final String genericBgEndpoint;
   final BgProvider bgProvider;
 
   AiSettings copyWith({
@@ -27,6 +30,7 @@ class AiSettings {
     String? multimodalApiKey,
     String? multimodalModel,
     String? removeBgApiKey,
+    String? genericBgEndpoint,
     BgProvider? bgProvider,
   }) {
     return AiSettings(
@@ -37,6 +41,7 @@ class AiSettings {
       multimodalApiKey: multimodalApiKey ?? this.multimodalApiKey,
       multimodalModel: multimodalModel ?? this.multimodalModel,
       removeBgApiKey: removeBgApiKey ?? this.removeBgApiKey,
+      genericBgEndpoint: genericBgEndpoint ?? this.genericBgEndpoint,
       bgProvider: bgProvider ?? this.bgProvider,
     );
   }
@@ -46,6 +51,7 @@ class AiSettings {
         'imageModel': imageModel,
         'multimodalApiBaseUrl': multimodalApiBaseUrl,
         'multimodalModel': multimodalModel,
+        'genericBgEndpoint': genericBgEndpoint,
         'bgProvider': bgProvider.name,
       };
 
@@ -54,6 +60,7 @@ class AiSettings {
         imageModel: json['imageModel'] as String? ?? 'gpt-image-1',
         multimodalApiBaseUrl: json['multimodalApiBaseUrl'] as String? ?? '',
         multimodalModel: json['multimodalModel'] as String? ?? 'gpt-4o-mini',
+        genericBgEndpoint: json['genericBgEndpoint'] as String? ?? '',
         bgProvider: BgProvider.values.firstWhere(
           (e) => e.name == json['bgProvider'],
           orElse: () => BgProvider.demo,
@@ -61,4 +68,12 @@ class AiSettings {
       );
 }
 
-enum BgProvider { demo, removeBg }
+enum BgProvider { demo, removeBg, genericHttp }
+
+extension BgProviderLabel on BgProvider {
+  String get labelEs => switch (this) {
+        BgProvider.demo => 'Demo',
+        BgProvider.removeBg => 'remove.bg',
+        BgProvider.genericHttp => 'HTTP genérico',
+      };
+}

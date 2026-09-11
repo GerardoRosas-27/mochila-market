@@ -13,7 +13,7 @@ import '../../features/home/presentation/home_shell.dart';
 import '../../features/inbox/presentation/inbox_screen.dart';
 import '../../features/inventory/presentation/inventory_screen.dart';
 import '../../features/marketplace/presentation/marketplace_screen.dart';
-import '../../features/meta/presentation/meta_settings_screen.dart';
+import '../../features/template/presentation/template_settings_screen.dart';
 
 final _rootKey = GlobalKey<NavigatorState>();
 
@@ -100,10 +100,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const AiSettingsScreen(),
       ),
       GoRoute(
-        path: '/meta',
-        name: 'meta',
+        path: '/plantilla',
+        name: 'plantilla',
         parentNavigatorKey: _rootKey,
-        builder: (context, state) => const MetaSettingsScreen(),
+        builder: (context, state) => const TemplateSettingsScreen(),
       ),
       GoRoute(
         path: '/empresa',
@@ -114,6 +114,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/catalogo',
         redirect: (_, __) => '/inventario',
+      ),
+      GoRoute(
+        path: '/meta',
+        redirect: (_, __) => '/cuenta',
       ),
     ],
   );

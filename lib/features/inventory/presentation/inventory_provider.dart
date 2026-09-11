@@ -1,74 +1,48 @@
-import 'dart:convert';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../core/data/providers.dart';
+import '../../../core/data/repositories/inventory_repository.dart';
 import '../../../core/models/product.dart';
 import '../data/seed_products.dart';
 
 class InventoryNotifier extends StateNotifier<List<Product>> {
-  InventoryNotifier() : super(const []) {
+  InventoryNotifier(this._repo) : super(const []) {
     _load();
   }
 
+  final InventoryRepository _repo;
   final _uuid = const Uuid();
-  static const _prefsKey = 'inventory_products_v1';
 
   Future<void> _load() async {
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_prefsKey);
-    if (raw != null) {
-      try {
-        final list = (jsonDecode(raw) as List)
-            .cast<Map<String, dynamic>>()
-            .map(Product.fromJson)
-            .toList();
-        state = list;
-        return;
-      } catch (_) {}
+    var list = await _repo.getAll();
+    if (list.isEmpty) {
+      final seeds = seedProducts();
+      for (final p in seeds) {
+        await _repo.upsert(p);
+      }
+      list = await _repo.getAll();
     }
-    // Migración: catálogo semilla antiguo (Backpack) → Product
-    final legacy = prefs.getString('catalog_backpacks');
-    if (legacy != null) {
-      try {
-        final list = (jsonDecode(legacy) as List)
-            .cast<Map<String, dynamic>>()
-            .map(Product.fromBackpackJson)
-            .toList();
-        state = list;
-        await _persist();
-        return;
-      } catch (_) {}
-    }
-    state = seedProducts();
-    await _persist();
+    state = list;
   }
 
-  Future<void> _persist() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(
-      _prefsKey,
-      jsonEncode(state.map((e) => e.toJson()).toList()),
-    );
+  Future<void> reload() async {
+    state = await _repo.getAll();
   }
 
   Future<void> add(Product item) async {
-    state = [...state, item];
-    await _persist();
+    await _repo.upsert(item);
+    await reload();
   }
 
   Future<void> update(Product item) async {
-    state = [
-      for (final b in state)
-        if (b.id == item.id) item else b,
-    ];
-    await _persist();
+    await _repo.upsert(item);
+    await reload();
   }
 
   Future<void> remove(String id) async {
-    state = state.where((b) => b.id != id).toList();
-    await _persist();
+    await _repo.delete(id);
+    await reload();
   }
 
   Product createDraft() {
@@ -82,7 +56,7 @@ class InventoryNotifier extends StateNotifier<List<Product>> {
 
 final inventoryProvider =
     StateNotifierProvider<InventoryNotifier, List<Product>>((ref) {
-  return InventoryNotifier();
+  return InventoryNotifier(ref.watch(inventoryRepositoryProvider));
 });
 
 /// Alias: el catálogo fino se reemplaza por inventario.
