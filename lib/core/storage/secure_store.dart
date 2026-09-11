@@ -19,6 +19,16 @@ class SecureStore {
   static const _keySessionName = 'account_display_name';
   static const _keySessionEmail = 'account_email';
 
+  // Local app auth
+  static const _keyLocalUsername = 'local_auth_username';
+  static const _keyLocalPasswordHash = 'local_auth_password_hash';
+  static const _keyLocalDisplayName = 'local_auth_display_name';
+  static const _keyLocalSessionActive = 'local_auth_session_active';
+
+  // Meta Graph secrets
+  static const _keyMetaAppSecret = 'meta_app_secret';
+  static const _keyMetaUserToken = 'meta_user_access_token';
+
   Future<void> saveImageApiKey(String value) =>
       _storage.write(key: _keyImageApi, value: value);
 
@@ -57,6 +67,57 @@ class SecureStore {
     await _storage.delete(key: _keySessionName);
     await _storage.delete(key: _keySessionEmail);
   }
+
+  // —— Auth local ——
+  Future<void> saveLocalCredentials({
+    required String username,
+    required String passwordHash,
+    required String displayName,
+  }) async {
+    await _storage.write(key: _keyLocalUsername, value: username);
+    await _storage.write(key: _keyLocalPasswordHash, value: passwordHash);
+    await _storage.write(key: _keyLocalDisplayName, value: displayName);
+  }
+
+  Future<Map<String, String?>> readLocalCredentials() async {
+    return {
+      'username': await _storage.read(key: _keyLocalUsername),
+      'passwordHash': await _storage.read(key: _keyLocalPasswordHash),
+      'displayName': await _storage.read(key: _keyLocalDisplayName),
+    };
+  }
+
+  Future<bool> hasLocalUser() async {
+    final u = await _storage.read(key: _keyLocalUsername);
+    final h = await _storage.read(key: _keyLocalPasswordHash);
+    return u != null && u.isNotEmpty && h != null && h.isNotEmpty;
+  }
+
+  Future<void> setLocalSessionActive(bool active) async {
+    await _storage.write(
+      key: _keyLocalSessionActive,
+      value: active ? '1' : '0',
+    );
+  }
+
+  Future<bool> isLocalSessionActive() async {
+    return (await _storage.read(key: _keyLocalSessionActive)) == '1';
+  }
+
+  Future<void> clearLocalSession() async {
+    await _storage.write(key: _keyLocalSessionActive, value: '0');
+  }
+
+  // —— Meta ——
+  Future<void> saveMetaAppSecret(String value) =>
+      _storage.write(key: _keyMetaAppSecret, value: value);
+
+  Future<String?> readMetaAppSecret() => _storage.read(key: _keyMetaAppSecret);
+
+  Future<void> saveMetaUserToken(String value) =>
+      _storage.write(key: _keyMetaUserToken, value: value);
+
+  Future<String?> readMetaUserToken() => _storage.read(key: _keyMetaUserToken);
 }
 
 final secureStoreProvider = Provider<SecureStore>((ref) {

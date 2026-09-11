@@ -2,14 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import 'account_provider.dart';
+import '../../auth/presentation/auth_provider.dart';
+import '../../meta/presentation/meta_provider.dart';
 
 class AccountScreen extends ConsumerWidget {
   const AccountScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final session = ref.watch(accountProvider);
+    final auth = ref.watch(authProvider);
+    final meta = ref.watch(metaProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -32,49 +34,63 @@ class AccountScreen extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    session.isLoggedIn ? 'Sesión activa' : 'Sin sesión',
+                    auth.isAuthenticated
+                        ? 'Sesión local activa'
+                        : 'Sin sesión',
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
                   const SizedBox(height: 8),
-                  if (session.isLoggedIn) ...[
+                  if (auth.isAuthenticated) ...[
                     ListTile(
                       contentPadding: EdgeInsets.zero,
                       leading: const CircleAvatar(child: Icon(Icons.person)),
-                      title: Text(session.displayName),
-                      subtitle: Text('${session.email}\nProveedor: ${session.provider}'),
+                      title: Text(
+                        auth.displayName.isEmpty
+                            ? auth.username
+                            : auth.displayName,
+                      ),
+                      subtitle: Text(
+                        'Usuario: ${auth.username}\n'
+                        'Acceso local · contraseña con hash bcrypt',
+                      ),
                       isThreeLine: true,
                     ),
                     const SizedBox(height: 8),
                     OutlinedButton.icon(
-                      onPressed: () =>
-                          ref.read(accountProvider.notifier).logout(),
+                      onPressed: () async {
+                        await ref.read(authProvider.notifier).logout();
+                      },
                       icon: const Icon(Icons.logout),
                       label: const Text('Cerrar sesión'),
-                    ),
-                  ] else ...[
-                    const Text(
-                      'Vincula una cuenta demo. El token se guarda en '
-                      'almacenamiento seguro (flutter_secure_storage).',
-                    ),
-                    const SizedBox(height: 16),
-                    FilledButton.icon(
-                      onPressed: () =>
-                          ref.read(accountProvider.notifier).loginDemo(),
-                      icon: const Icon(Icons.link),
-                      label: const Text('Iniciar sesión demo'),
-                    ),
-                    const SizedBox(height: 8),
-                    OutlinedButton.icon(
-                      onPressed: () => _customLogin(context, ref),
-                      icon: const Icon(Icons.edit),
-                      label: const Text('Login demo personalizado'),
                     ),
                   ],
                 ],
               ),
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.facebook),
+              title: const Text('Meta Graph API'),
+              subtitle: Text(
+                meta.connectionOk
+                    ? 'Conexión OK · Page ${meta.pageId.isEmpty ? "(sin ID)" : meta.pageId}'
+                    : 'Configurar App ID, token, Page ID',
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => context.push('/meta'),
+            ),
+          ),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.store),
+              title: const Text('Datos de empresa'),
+              subtitle: const Text('Nombre, ubicación, croquis, horarios'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => context.push('/empresa'),
+            ),
+          ),
           Card(
             child: ListTile(
               leading: const Icon(Icons.tune),
@@ -87,52 +103,13 @@ class AccountScreen extends ConsumerWidget {
           const SizedBox(height: 16),
           const Text(
             'Nota: no se usa scraping de Meta. Las publicaciones son '
-            'borradores locales / canales genéricos configurables.',
+            'borradores locales o posts en feed de Página vía Graph API. '
+            'Los ítems de Facebook Marketplace no están disponibles en la '
+            'API pública.',
             style: TextStyle(fontSize: 13),
           ),
         ],
       ),
     );
-  }
-
-  Future<void> _customLogin(BuildContext context, WidgetRef ref) async {
-    final name = TextEditingController(text: 'Gerardo Vendedor');
-    final email = TextEditingController(text: 'vendedor@mochila.market');
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Login demo'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: name,
-              decoration: const InputDecoration(labelText: 'Nombre'),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: email,
-              decoration: const InputDecoration(labelText: 'Correo'),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Entrar'),
-          ),
-        ],
-      ),
-    );
-    if (ok == true) {
-      await ref.read(accountProvider.notifier).loginDemo(
-            name: name.text.trim(),
-            email: email.text.trim(),
-          );
-    }
   }
 }

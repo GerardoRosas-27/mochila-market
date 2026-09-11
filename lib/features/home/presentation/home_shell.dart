@@ -32,9 +32,9 @@ class HomeShell extends StatelessWidget {
             label: 'Market',
           ),
           NavigationDestination(
-            icon: Icon(Icons.backpack_outlined),
-            selectedIcon: Icon(Icons.backpack),
-            label: 'Catálogo',
+            icon: Icon(Icons.inventory_2_outlined),
+            selectedIcon: Icon(Icons.inventory_2),
+            label: 'Inventario',
           ),
           NavigationDestination(
             icon: Icon(Icons.inbox_outlined),

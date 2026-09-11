@@ -1,13 +1,16 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../core/models/company_data.dart';
 import '../../../core/models/inbox_message.dart';
+import '../../company/presentation/company_provider.dart';
 import '../data/ai_reply_service.dart';
 
 class InboxNotifier extends StateNotifier<List<InboxMessage>> {
-  InboxNotifier(this._ai) : super(_seed());
+  InboxNotifier(this._ai, this._ref) : super(_seed());
 
   final AiReplyService _ai;
+  final Ref _ref;
   final _uuid = const Uuid();
 
   static List<InboxMessage> _seed() {
@@ -37,12 +40,23 @@ class InboxNotifier extends StateNotifier<List<InboxMessage>> {
     ];
   }
 
+  String _companyContext() {
+    final CompanyData c = _ref.read(companyProvider);
+    final parts = <String>[
+      if (c.name.isNotEmpty) c.name,
+      if (c.address.isNotEmpty) c.address,
+      if (c.locationText.isNotEmpty) c.locationText,
+    ];
+    return parts.join(' · ');
+  }
+
   Future<void> generateAiReply(String id) async {
     final msg = state.firstWhere((m) => m.id == id);
     final reply = await _ai.generateReply(
       buyerName: msg.buyerName,
       productName: msg.productName,
       message: msg.body,
+      companyContext: _companyContext(),
     );
     state = [
       for (final m in state)
@@ -77,5 +91,5 @@ class InboxNotifier extends StateNotifier<List<InboxMessage>> {
 
 final inboxProvider =
     StateNotifierProvider<InboxNotifier, List<InboxMessage>>((ref) {
-  return InboxNotifier(ref.watch(aiReplyServiceProvider));
+  return InboxNotifier(ref.watch(aiReplyServiceProvider), ref);
 });

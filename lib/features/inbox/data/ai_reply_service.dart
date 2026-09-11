@@ -25,6 +25,7 @@ class AiReplyService {
     required String buyerName,
     required String productName,
     required String message,
+    String companyContext = '',
   }) async {
     final apiKey =
         await store.readMultimodalApiKey() ?? settings.multimodalApiKey;
@@ -46,6 +47,7 @@ class AiReplyService {
       buyerName: buyerName,
       productName: productName,
       message: message,
+      companyContext: companyContext,
     );
   }
 
@@ -53,11 +55,19 @@ class AiReplyService {
     required String buyerName,
     required String productName,
     required String message,
+    String companyContext = '',
   }) {
     final lower = message.toLowerCase();
-    if (lower.contains('envío') || lower.contains('envio')) {
+    final locHint = companyContext.isEmpty
+        ? ''
+        : ' (tienda: $companyContext)';
+    if (lower.contains('envío') || lower.contains('envio') || lower.contains('horario') || lower.contains('dirección') || lower.contains('direccion')) {
+      if (companyContext.isNotEmpty && (lower.contains('horario') || lower.contains('dirección') || lower.contains('direccion') || lower.contains('ubicación') || lower.contains('ubicacion'))) {
+        return '¡Hola $buyerName! Datos de la tienda$locHint. '
+            '¿Te ayudo con $productName o con el envío?';
+      }
       return '¡Hola $buyerName! El envío de $productName sale en 24–48 h '
-          'hábiles a toda la República. ¿Me compartes tu CP para cotizar?';
+          'hábiles a toda la República$locHint. ¿Me compartes tu CP para cotizar?';
     }
     if (lower.contains('precio') || lower.contains('descuento')) {
       return 'Hola $buyerName, el precio de $productName es el publicado. '
