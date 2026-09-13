@@ -1,6 +1,4 @@
-import 'dart:io';
-import 'dart:typed_data';
-
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path/path.dart' as p;
@@ -46,36 +44,73 @@ class CameraNotifier extends StateNotifier<PhotoSession> {
   final BgRemovalService _bg;
   final _picker = ImagePicker();
   final _uuid = const Uuid();
+  XFile? _lastPicked;
 
   Future<void> pickFromGallery() async {
-    final file = await _picker.pickImage(
-      source: ImageSource.gallery,
-      imageQuality: 90,
-    );
-    if (file == null) return;
-    state = PhotoSession(originalPath: file.path);
+    try {
+      final file = await _picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 90,
+      );
+      if (file == null) return;
+      _lastPicked = file;
+      state = PhotoSession(originalPath: file.path);
+    } catch (e) {
+      state = state.copyWith(
+        error: 'No se pudo abrir la galería: $e',
+      );
+    }
   }
 
   Future<void> pickFromCamera() async {
-    final file = await _picker.pickImage(
-      source: ImageSource.camera,
-      imageQuality: 90,
-      preferredCameraDevice: CameraDevice.rear,
-    );
-    if (file == null) return;
-    state = PhotoSession(originalPath: file.path);
+    if (kIsWeb) {
+      state = state.copyWith(
+        error:
+            'La cámara no está disponible en el navegador. '
+            'Usa «Galería» para subir una foto.',
+      );
+      return;
+    }
+    try {
+      final file = await _picker.pickImage(
+        source: ImageSource.camera,
+        imageQuality: 90,
+        preferredCameraDevice: CameraDevice.rear,
+      );
+      if (file == null) return;
+      _lastPicked = file;
+      state = PhotoSession(originalPath: file.path);
+    } catch (e) {
+      state = state.copyWith(
+        error:
+            'No se pudo abrir la cámara. Prueba con «Galería». '
+            '($e)',
+      );
+    }
   }
 
   Future<void> removeBackground() async {
-    final path = state.originalPath;
-    if (path == null) return;
+    if (state.originalPath == null && _lastPicked == null) return;
     state = state.copyWith(isProcessing: true, clearError: true);
     try {
-      final bytes = await File(path).readAsBytes();
-      final out = await _bg.remove(Uint8List.fromList(bytes));
+      final Uint8List bytes;
+      if (_lastPicked != null) {
+        bytes = await _lastPicked!.readAsBytes();
+      } else {
+        bytes = await XFile(state.originalPath!).readAsBytes();
+      }
+      final out = await _bg.remove(bytes);
+      if (kIsWeb) {
+        // Sin filesystem en web: marcamos procesado; LocalImage usa placeholder.
+        state = state.copyWith(
+          processedPath: state.originalPath,
+          isProcessing: false,
+        );
+        return;
+      }
       final dir = await getApplicationDocumentsDirectory();
       final outPath = p.join(dir.path, 'bg_${_uuid.v4()}.png');
-      await File(outPath).writeAsBytes(out);
+      await XFile.fromData(out, name: p.basename(outPath)).saveTo(outPath);
       state = state.copyWith(
         processedPath: outPath,
         isProcessing: false,
@@ -88,7 +123,10 @@ class CameraNotifier extends StateNotifier<PhotoSession> {
     }
   }
 
-  void clear() => state = const PhotoSession();
+  void clear() {
+    _lastPicked = null;
+    state = const PhotoSession();
+  }
 }
 
 final cameraProvider =

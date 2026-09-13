@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 
 import '../../../core/models/product.dart';
 import '../../../core/widgets/local_image.dart';
+import '../../auth/presentation/auth_provider.dart';
 import '../../inventory/presentation/inventory_provider.dart';
 
 /// Tienda pública: lista TODAS las mochilas disponibles del inventario.
@@ -27,8 +28,13 @@ class StorefrontScreen extends ConsumerWidget {
         actions: [
           if (showAdminLink)
             TextButton(
-              onPressed: () => context.go('/publicaciones'),
-              child: const Text('Admin'),
+              onPressed: () {
+                final loggedIn = ref.read(authProvider).isAuthenticated;
+                context.go(loggedIn ? '/inventario' : '/login');
+              },
+              child: Text(
+                ref.watch(authProvider).isAuthenticated ? 'Admin' : 'Entrar',
+              ),
             ),
         ],
       ),

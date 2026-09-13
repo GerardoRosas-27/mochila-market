@@ -6,7 +6,7 @@ App Flutter **multipuerto** (Android, iOS, Web, Desktop) en español para fotogr
 
 **Repositorio:** https://github.com/GerardoRosas-27/mochila-market
 
-## Modelo de producto (v1.2)
+## Modelo de producto (v1.3)
 
 | Concepto | Qué es | Ruta |
 |----------|--------|------|
@@ -19,6 +19,8 @@ App Flutter **multipuerto** (Android, iOS, Web, Desktop) en español para fotogr
 - **Exportar como borrador** = plantilla Marketplace → portapapeles (no es estado «no publicado»).
 
 Rutas admin (login local): `/publicaciones`, `/inventario`, `/fotos`, `/inbox`, `/cuenta`.
+
+**Web:** la tienda pública (`/tienda`, productos/ofertas) sigue sin login. El botón **Entrar/Admin** lleva a `/login` o al shell admin. En pantallas anchas el admin usa **NavigationRail** (todas las secciones visibles). Auth local en web usa **SharedPreferences** (no `flutter_secure_storage`).
 
 ## URL scheme
 
@@ -71,10 +73,10 @@ con `Content-Disposition: attachment`. El APK/ZIP se obtienen en el **Docker bui
 ### Android APK
 
 - Build local: `flutter build apk --release` (Android SDK + JDK).
-- Release asset: tag `v1.2.0-mobile`, `MochilaMarket.apk` (también `MochilaMarket-android.zip`).
+- Release asset: tag `v1.3.0-mobile`, `MochilaMarket.apk` (también `MochilaMarket-android.zip`).
 - Mirror Railway: `server/fetch_apk.sh` hace curl en la imagen Docker → `/downloads/mochila-market.apk` (+ ZIP con notas de instalación).
 
-Fallbacks de fetch: `latest` → `v1.1.0-mobile` → `v1.0.0-mobile`.
+Fallbacks de fetch: `latest` → `v1.3.0-mobile` → `v1.2.0-mobile` → `v1.1.0-mobile`.
 
 ### iOS (limitaciones)
 

@@ -1,7 +1,7 @@
 name: mochila_market
 description: "MochilaMarket — inventario de mochilas, tienda pública, publicaciones (grupos de ofertas), plantilla Marketplace, fotos e IA externa."
 publish_to: 'none'
-version: 1.2.0+3
+version: 1.3.0+4
 
 environment:
   sdk: ^3.5.0

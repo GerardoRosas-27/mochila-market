@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../../../core/widgets/local_image.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -57,6 +58,14 @@ class CameraScreen extends ConsumerWidget {
               ),
             ],
           ),
+          if (kIsWeb) ...[
+            const SizedBox(height: 8),
+            Text(
+              'En el navegador usa «Galería» para subir fotos. '
+              'La cámara nativa no está disponible en web.',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ],
           const SizedBox(height: 16),
           if (session.originalPath != null) ...[
             _ImageCard(

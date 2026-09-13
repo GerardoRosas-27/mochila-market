@@ -2,10 +2,10 @@
 set -eu
 mkdir -p downloads
 NOTES="$(dirname "$0")/install_notes"
-TAGGED_NEW="https://github.com/GerardoRosas-27/mochila-market/releases/download/v1.2.0-mobile/MochilaMarket.apk"
+TAGGED_NEW="https://github.com/GerardoRosas-27/mochila-market/releases/download/v1.3.0-mobile/MochilaMarket.apk"
 LATEST="https://github.com/GerardoRosas-27/mochila-market/releases/latest/download/MochilaMarket.apk"
-TAGGED_OLD="https://github.com/GerardoRosas-27/mochila-market/releases/download/v1.1.0-mobile/MochilaMarket.apk"
-TAGGED_OLDER="https://github.com/GerardoRosas-27/mochila-market/releases/download/v1.0.0-mobile/MochilaMarket.apk"
+TAGGED_OLD="https://github.com/GerardoRosas-27/mochila-market/releases/download/v1.2.0-mobile/MochilaMarket.apk"
+TAGGED_OLDER="https://github.com/GerardoRosas-27/mochila-market/releases/download/v1.1.0-mobile/MochilaMarket.apk"
 echo Fetching_APK
 if ! curl -fL --retry 3 --retry-delay 2 -o downloads/mochila-market.apk "$TAGGED_NEW"; then
   echo fallback_latest

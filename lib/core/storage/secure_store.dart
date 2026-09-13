@@ -1,5 +1,7 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 final secureStorageProvider = Provider<FlutterSecureStorage>((ref) {
   return const FlutterSecureStorage(
@@ -7,6 +9,9 @@ final secureStorageProvider = Provider<FlutterSecureStorage>((ref) {
   );
 });
 
+/// Persistencia de secretos / sesión.
+/// En web usa SharedPreferences (flutter_secure_storage falla a menudo en HTTPS).
+/// En móvil/desktop preferimos flutter_secure_storage.
 class SecureStore {
   SecureStore(this._storage);
 
@@ -25,43 +30,74 @@ class SecureStore {
   static const _keyLocalDisplayName = 'local_auth_display_name';
   static const _keyLocalSessionActive = 'local_auth_session_active';
 
-  Future<void> saveImageApiKey(String value) =>
-      _storage.write(key: _keyImageApi, value: value);
+  Future<SharedPreferences> get _prefs => SharedPreferences.getInstance();
 
-  Future<String?> readImageApiKey() => _storage.read(key: _keyImageApi);
+  Future<void> _write(String key, String? value) async {
+    if (kIsWeb) {
+      final p = await _prefs;
+      if (value == null) {
+        await p.remove(key);
+      } else {
+        await p.setString(key, value);
+      }
+      return;
+    }
+    if (value == null) {
+      await _storage.delete(key: key);
+    } else {
+      await _storage.write(key: key, value: value);
+    }
+  }
+
+  Future<String?> _read(String key) async {
+    if (kIsWeb) {
+      return (await _prefs).getString(key);
+    }
+    try {
+      return await _storage.read(key: key);
+    } catch (_) {
+      // Fallback si secure storage falla en alguna plataforma.
+      return (await _prefs).getString(key);
+    }
+  }
+
+  Future<void> saveImageApiKey(String value) =>
+      _write(_keyImageApi, value);
+
+  Future<String?> readImageApiKey() => _read(_keyImageApi);
 
   Future<void> saveMultimodalApiKey(String value) =>
-      _storage.write(key: _keyMultiApi, value: value);
+      _write(_keyMultiApi, value);
 
-  Future<String?> readMultimodalApiKey() => _storage.read(key: _keyMultiApi);
+  Future<String?> readMultimodalApiKey() => _read(_keyMultiApi);
 
   Future<void> saveRemoveBgApiKey(String value) =>
-      _storage.write(key: _keyRemoveBg, value: value);
+      _write(_keyRemoveBg, value);
 
-  Future<String?> readRemoveBgApiKey() => _storage.read(key: _keyRemoveBg);
+  Future<String?> readRemoveBgApiKey() => _read(_keyRemoveBg);
 
   Future<void> saveSession({
     required String token,
     required String name,
     required String email,
   }) async {
-    await _storage.write(key: _keySessionToken, value: token);
-    await _storage.write(key: _keySessionName, value: name);
-    await _storage.write(key: _keySessionEmail, value: email);
+    await _write(_keySessionToken, token);
+    await _write(_keySessionName, name);
+    await _write(_keySessionEmail, email);
   }
 
   Future<Map<String, String?>> readSession() async {
     return {
-      'token': await _storage.read(key: _keySessionToken),
-      'name': await _storage.read(key: _keySessionName),
-      'email': await _storage.read(key: _keySessionEmail),
+      'token': await _read(_keySessionToken),
+      'name': await _read(_keySessionName),
+      'email': await _read(_keySessionEmail),
     };
   }
 
   Future<void> clearSession() async {
-    await _storage.delete(key: _keySessionToken);
-    await _storage.delete(key: _keySessionName);
-    await _storage.delete(key: _keySessionEmail);
+    await _write(_keySessionToken, null);
+    await _write(_keySessionName, null);
+    await _write(_keySessionEmail, null);
   }
 
   // —— Auth local ——
@@ -70,38 +106,35 @@ class SecureStore {
     required String passwordHash,
     required String displayName,
   }) async {
-    await _storage.write(key: _keyLocalUsername, value: username);
-    await _storage.write(key: _keyLocalPasswordHash, value: passwordHash);
-    await _storage.write(key: _keyLocalDisplayName, value: displayName);
+    await _write(_keyLocalUsername, username);
+    await _write(_keyLocalPasswordHash, passwordHash);
+    await _write(_keyLocalDisplayName, displayName);
   }
 
   Future<Map<String, String?>> readLocalCredentials() async {
     return {
-      'username': await _storage.read(key: _keyLocalUsername),
-      'passwordHash': await _storage.read(key: _keyLocalPasswordHash),
-      'displayName': await _storage.read(key: _keyLocalDisplayName),
+      'username': await _read(_keyLocalUsername),
+      'passwordHash': await _read(_keyLocalPasswordHash),
+      'displayName': await _read(_keyLocalDisplayName),
     };
   }
 
   Future<bool> hasLocalUser() async {
-    final u = await _storage.read(key: _keyLocalUsername);
-    final h = await _storage.read(key: _keyLocalPasswordHash);
+    final u = await _read(_keyLocalUsername);
+    final h = await _read(_keyLocalPasswordHash);
     return u != null && u.isNotEmpty && h != null && h.isNotEmpty;
   }
 
   Future<void> setLocalSessionActive(bool active) async {
-    await _storage.write(
-      key: _keyLocalSessionActive,
-      value: active ? '1' : '0',
-    );
+    await _write(_keyLocalSessionActive, active ? '1' : '0');
   }
 
   Future<bool> isLocalSessionActive() async {
-    return (await _storage.read(key: _keyLocalSessionActive)) == '1';
+    return (await _read(_keyLocalSessionActive)) == '1';
   }
 
   Future<void> clearLocalSession() async {
-    await _storage.write(key: _keyLocalSessionActive, value: '0');
+    await _write(_keyLocalSessionActive, '0');
   }
 }
 

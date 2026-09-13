@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import 'auth_provider.dart';
 
@@ -161,8 +162,14 @@ class _AuthGateScreenState extends ConsumerState<AuthGateScreen> {
                   ),
                 ),
                 const SizedBox(height: 24),
+                TextButton(
+                  onPressed: () => context.go('/tienda'),
+                  child: const Text('Volver a la tienda pública'),
+                ),
+                const SizedBox(height: 8),
                 const Text(
-                  'Sin servidor: el acceso es solo local en este dispositivo.',
+                  'Sin servidor: el acceso es solo local en este dispositivo '
+                  '(en web se guarda en el navegador).',
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 12),
                 ),

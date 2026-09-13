@@ -28,6 +28,18 @@ bool _isPublicPath(String loc) {
   return false;
 }
 
+/// Destino post-login: query `from` si es ruta interna no pública, si no inventario.
+String _postLoginLocation(GoRouterState state) {
+  final from = state.uri.queryParameters['from'];
+  if (from != null &&
+      from.startsWith('/') &&
+      !from.startsWith('//') &&
+      !_isPublicPath(from.split('?').first)) {
+    return from;
+  }
+  return '/inventario';
+}
+
 final appRouterProvider = Provider<GoRouter>((ref) {
   final refresh = _AuthRefresh(ref);
 
@@ -44,9 +56,17 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
       if (!auth.isAuthenticated) {
         if (public) return null;
+        // Guarda destino pretendido para volver tras login.
+        final intended = state.uri.toString();
+        if (intended.isNotEmpty && intended != '/login') {
+          return Uri(
+            path: '/login',
+            queryParameters: {'from': intended},
+          ).toString();
+        }
         return '/login';
       }
-      if (onLogin) return '/publicaciones';
+      if (onLogin) return _postLoginLocation(state);
       return null;
     },
     routes: [

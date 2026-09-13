@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import '../../../core/models/product.dart';
 import '../../../core/settings/public_base_url.dart';
 import '../../../core/widgets/local_image.dart';
+import '../../auth/presentation/auth_provider.dart';
 import '../../inventory/presentation/inventory_provider.dart';
 
 /// Detalle público de un producto del inventario (precio + características).
@@ -54,6 +55,15 @@ class ProductDetailScreen extends ConsumerWidget {
       appBar: AppBar(
         title: Text(p.name),
         actions: [
+          TextButton(
+            onPressed: () {
+              final loggedIn = ref.read(authProvider).isAuthenticated;
+              context.go(loggedIn ? '/inventario' : '/login');
+            },
+            child: Text(
+              ref.watch(authProvider).isAuthenticated ? 'Admin' : 'Entrar',
+            ),
+          ),
           IconButton(
             tooltip: 'Copiar enlace',
             icon: const Icon(Icons.link),

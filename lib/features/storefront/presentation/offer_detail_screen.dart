@@ -8,6 +8,7 @@ import '../../../core/models/listing_draft.dart';
 import '../../../core/models/product.dart';
 import '../../../core/settings/public_base_url.dart';
 import '../../../core/widgets/local_image.dart';
+import '../../auth/presentation/auth_provider.dart';
 import '../../company/presentation/company_provider.dart';
 import '../../inventory/presentation/inventory_provider.dart';
 import '../../marketplace/presentation/marketplace_provider.dart';
@@ -72,6 +73,15 @@ class OfferDetailScreen extends ConsumerWidget {
       appBar: AppBar(
         title: Text(pub.title),
         actions: [
+          TextButton(
+            onPressed: () {
+              final loggedIn = ref.read(authProvider).isAuthenticated;
+              context.go(loggedIn ? '/inventario' : '/login');
+            },
+            child: Text(
+              ref.watch(authProvider).isAuthenticated ? 'Admin' : 'Entrar',
+            ),
+          ),
           IconButton(
             tooltip: 'Copiar enlace de oferta',
             icon: const Icon(Icons.link),
